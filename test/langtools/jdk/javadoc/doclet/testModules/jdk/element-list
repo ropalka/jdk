@@ -20,6 +20,7 @@ java.nio.file
 java.nio.file.attribute
 java.nio.file.spi
 java.security
+java.security.acl
 java.security.cert
 java.security.interfaces
 java.security.spec
