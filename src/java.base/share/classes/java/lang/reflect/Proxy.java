@@ -493,6 +493,7 @@ public class Proxy implements java.io.Serializable {
             new ClassLoaderValue<>();
 
         private static Class<?> defineProxyClass(Module m, List<Class<?>> interfaces) {
+            System.out.println("[RIO] defineProxyClass() module == " + m + ", interfaces == " + interfaces);
             String proxyPkg = null;     // package to define proxy class in
             int accessFlags = Modifier.PUBLIC | Modifier.FINAL;
             boolean nonExported = false;
@@ -503,8 +504,10 @@ public class Proxy implements java.io.Serializable {
              * all non-public proxy interfaces are in the same package.
              */
             for (Class<?> intf : interfaces) {
+                System.out.println("[RIO] defineProxyClass() - processing interface: " + intf);
                 int flags = intf.getModifiers();
                 if (!Modifier.isPublic(flags)) {
+                    System.out.println("[RIO] defineProxyClass() - interface is package private");
                     accessFlags = Modifier.FINAL;  // non-public, final
                     String pkg = intf.getPackageName();
                     if (proxyPkg == null) {
@@ -515,18 +518,21 @@ public class Proxy implements java.io.Serializable {
                     }
                 } else {
                     if (!intf.getModule().isExported(intf.getPackageName())) {
+                        System.out.println("[RIO] defineProxyClass() - interface package is not exported");
                         // module-private types
                         nonExported = true;
                     }
                 }
             }
 
+            System.out.println("[RIO] defineProxyClass() - before proxyPkg == " + proxyPkg);
             if (proxyPkg == null) {
                 // all proxy interfaces are public and exported
                 if (!m.isNamed())
                     throw new InternalError("ununamed module: " + m);
                 proxyPkg = nonExported ? PROXY_PACKAGE_PREFIX + "." + m.getName()
                                        : m.getName();
+                System.out.println("[RIO] defineProxyClass() after proxyPkg == " + proxyPkg);
             } else if (proxyPkg.isEmpty() && m.isNamed()) {
                 throw new IllegalArgumentException(
                         "Unnamed package cannot be added to " + m);
@@ -645,6 +651,7 @@ public class Proxy implements java.io.Serializable {
             validateProxyInterfaces(loader, interfaces, refTypes);
 
             this.interfaces = interfaces;
+            System.out.println("[RIO] ProxyBuilder.<ctor> - loader == " + loader + ", interfaces == " + interfaces);
             this.module = mapToModule(loader, interfaces, refTypes);
             assert getLoader(module) == loader;
         }
@@ -780,15 +787,19 @@ public class Proxy implements java.io.Serializable {
         private static Module mapToModule(ClassLoader loader,
                                           List<Class<?>> interfaces,
                                           Set<Class<?>> refTypes) {
+            System.out.println("[RIO] mapToModule() loader == " + loader + ", interfaces == " + interfaces + ", refTypes == " + refTypes);
             Map<Class<?>, Module> packagePrivateTypes = new HashMap<>();
             for (Class<?> intf : interfaces) {
                 Module m = intf.getModule();
+		System.out.println("[RIO] mapToModule() intf == " + intf + " from module == " + m);
                 if (!Modifier.isPublic(intf.getModifiers())) {
+                    System.out.println("[RIO] mapToModule() intf == " + intf + " is not public");
                     packagePrivateTypes.put(intf, m);
                 }
             }
 
             if (packagePrivateTypes.size() > 0) {
+                System.out.println("[RIO] mapToModule() packagePrivateTypes.size() == " + packagePrivateTypes.size());
                 // all package-private types must be in the same runtime package
                 // i.e. same package name and same module (named or unnamed)
                 //
@@ -813,6 +824,7 @@ public class Proxy implements java.io.Serializable {
 
                     targetModule = m;
                     targetPackageName = e.getKey().getPackageName();
+                    System.out.println("[RIO] mapToModule() targetModule == " + m + ", targetPackageName == " + targetPackageName);
                 }
 
                 // validate if the target module can access all other interfaces
@@ -826,6 +838,7 @@ public class Proxy implements java.io.Serializable {
                 }
 
                 // opens the package of the non-public proxy class for java.base to access
+                System.out.println("[RIO] mapToModule() targetModule.isNamed() == " + targetModule.isNamed());
                 if (targetModule.isNamed()) {
                     Modules.addOpens(targetModule, targetPackageName, Proxy.class.getModule());
                 }
@@ -836,6 +849,7 @@ public class Proxy implements java.io.Serializable {
             // All proxy interfaces are public.  So maps to a dynamic proxy module
             // and add reads edge and qualified exports, if necessary
             Module targetModule = getDynamicModule(loader);
+            System.out.println("[RIO] mapToModule() getDynamicModule() -> targetModule == " + targetModule);
 
             // set up proxy class access to proxy interfaces and types
             // referenced in the method signature
